@@ -216,7 +216,7 @@ def gen_judgments(
             models = model_list
 
         for model_id in models:
-            scores = instruction_following_process_results(questions, model_answers, task_name, model_id)
+            scores = instruction_following_process_results(questions, model_answers, task_name, model_id, output_base_dir)
             for item in scores:
                 question_id = item["question_id"]
                 score = item["score"]
@@ -333,9 +333,9 @@ if __name__ == "__main__":
 
 
                 task_full_name = f"{LIVE_BENCH_DATA_SUPER_PATH}/{category_name}/{task_name}"
-                output_file = f"data/{task_full_name}/model_judgment/ground_truth_judgment.jsonl"
+                output_file = f"{output_base_dir}/{task_full_name}/model_judgment/ground_truth_judgment.jsonl"
 
-                answer_dir = f"data/{task_full_name}/model_answer/"
+                answer_dir = f"{output_base_dir}/{task_full_name}/model_answer/"
 
                 gen_judgments(
                     parallel=args.parallel,
@@ -350,11 +350,11 @@ if __name__ == "__main__":
 
     elif args.question_source == "jsonl":
         list_of_question_files = []
-        original_question_file = f"data/{args.bench_name}/question.jsonl"
+        original_question_file = f"{output_base_dir}/{args.bench_name}/question.jsonl"
         if os.path.exists(original_question_file):
             list_of_question_files = [original_question_file]
         else:
-            list_of_question_files = glob.glob(f"data/{args.bench_name}/**/question.jsonl", recursive=True)
+            list_of_question_files = glob.glob(f"{output_base_dir}/{args.bench_name}/**/question.jsonl", recursive=True)
 
         for question_file in list_of_question_files:
             print(question_file)
@@ -369,8 +369,8 @@ if __name__ == "__main__":
 
             bench_name = os.path.dirname(question_file).replace("data/","")
 
-            output_file = f"data/{bench_name}/model_judgment/ground_truth_judgment.jsonl"
-            answer_dir = f"data/{bench_name}/model_answer/"
+            output_file = f"{output_base_dir}/{bench_name}/model_judgment/ground_truth_judgment.jsonl"
+            answer_dir = f"{output_base_dir}/{bench_name}/model_answer/"
             if len(questions) > 0:
                 gen_judgments(
                     parallel=args.parallel,

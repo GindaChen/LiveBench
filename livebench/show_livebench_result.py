@@ -27,7 +27,7 @@ def display_result_single(args, update_names=True):
 
     if args.input_file is None:
         input_files = (
-            glob.glob(f"data/{args.bench_name}/**/model_judgment/ground_truth_judgment.jsonl", recursive=True)
+            glob.glob(f"{args.result_base_dir}/{args.bench_name}/**/model_judgment/ground_truth_judgment.jsonl", recursive=True)
         )
     else:
         input_files = args.input_file
@@ -43,11 +43,11 @@ def display_result_single(args, update_names=True):
         
     elif args.question_source == "jsonl":
         list_of_question_files = []
-        original_question_file = f"data/{args.bench_name}/question.jsonl"
+        original_question_file = f"{args.result_base_dir}/{args.bench_name}/question.jsonl"
         if os.path.exists(original_question_file):
             list_of_question_files = [original_question_file]
         else:
-            list_of_question_files = glob.glob(f"data/{args.bench_name}/**/question.jsonl", recursive=True)
+            list_of_question_files = glob.glob(f"{args.result_base_dir}/{args.bench_name}/**/question.jsonl", recursive=True)
 
         for question_file in list_of_question_files:
             print(question_file)
@@ -158,6 +158,9 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--livebench-release-option", type=str, default='2024-08-31', help="Livebench release to use. Provide a single date option, current options are {'2024-08-31' (august update), '2024-07-26' (july update), '2024-06-24' (original release)}. Will handle excluding deprecated questions for selected release."
+    )
+    parser.add_argument(
+        "--result-base-dir", type=str, default='data', help="The base directory to store the output files."
     )
     args = parser.parse_args()
 
