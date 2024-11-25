@@ -657,7 +657,7 @@ def load_single_model_judgments(filename: str):
 def check_data(questions, model_answers, models):
     # check model answers
     for m in models:
-        assert m in model_answers, f"Missing model answer for {m}"
+        assert m in model_answers, f"Missing model answer for {m} in {model_answers}"
         m_answer = model_answers[m]
         for q in questions:
             assert (

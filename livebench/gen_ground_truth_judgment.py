@@ -301,8 +301,13 @@ if __name__ == "__main__":
     parser.add_argument(
         "--livebench-release-option", type=str, default='2024-08-31', help="Livebench release to use. Provide a single date option, current options are {'2024-08-31' (august update), '2024-07-26' (july update), '2024-06-24' (original release)}. Will handle excluding deprecated questions for selected release."
     )
+    parser.add_argument(
+        "--output-base-dir", type=str, default="data",
+    )
     args = parser.parse_args()
 
+    print(args)
+    output_base_dir = args.output_base_dir
     valid_livebench_releases = set(['2024-07-26', '2024-06-24', '2024-08-31'])
 
     if args.livebench_release_option not in valid_livebench_releases:

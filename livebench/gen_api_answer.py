@@ -49,7 +49,7 @@ from livebench.model.model_adapter import (
 )
 
 def get_answer(
-    question: dict, model: str, num_choices: int, max_tokens: int, answer_file: str, api_dict: dict=None
+    question: dict, model: str, num_choices: int, max_tokens: int, answer_file: str, api_dict: dict=None, default_temperature: float=0.7
 ):
     assert (
         args.force_temperature is not None and "required_temperature" in question.keys()
@@ -59,7 +59,7 @@ def get_answer(
     elif "required_temperature" in question.keys():
         temperature = question["required_temperature"]
     else:
-        temperature = 0.0
+        temperature = default_temperature
 
     choices = []
     chat_state = None  # for palm-2 model
@@ -119,7 +119,7 @@ def get_answer(
         fout.write(json.dumps(ans) + "\n")
 
 
-def run_questions(parallel, questions, model, num_choices, max_tokens, answer_file, api_dict):
+def run_questions(parallel, questions, model, num_choices, max_tokens, answer_file, api_dict, default_temperature):
     if parallel == 1:
         for question in tqdm.tqdm(questions):
             get_answer(
@@ -129,6 +129,7 @@ def run_questions(parallel, questions, model, num_choices, max_tokens, answer_fi
                 max_tokens,
                 answer_file,
                 api_dict=api_dict,
+                default_temperature=default_temperature,
             )
         if len(questions) > 0:
             reorg_answer_file(answer_file)
@@ -145,6 +146,7 @@ def run_questions(parallel, questions, model, num_choices, max_tokens, answer_fi
                     max_tokens,
                     answer_file,
                     api_dict=api_dict,
+                    default_temperature=default_temperature,
                 )
                 futures.append(future)      
 
@@ -170,7 +172,15 @@ if __name__ == "__main__":
         default=None,
         help="If provided, will be used as the base of an openai API request, along with the environment variable LIVEBENCH_API_KEY",
     )
-    parser.add_argument("--model", type=str, default="gpt-3.5-turbo")
+    # output_base_dir
+    parser.add_argument(
+        "--output-base-dir",
+        type=str,
+        default="data",
+        help="The base directory for output files.",
+    )
+    parser.add_argument("--model", type=str, default="Qwen/Qwen2.5-7B-Instruct.jsonl")
+    parser.add_argument("--model-id", type=str, default="Qwen2.5-7B-Instruct")
     parser.add_argument(
         "--num-choices",
         type=int,
@@ -179,6 +189,9 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--force-temperature", type=float, help="Forcibly set a sampling temperature."
+    )
+    parser.add_argument(
+        "--default-temperature", type=float, default=0.7, help="The default temperature for the model."
     )
     parser.add_argument(
         "--max-tokens",
@@ -204,6 +217,8 @@ if __name__ == "__main__":
         "--livebench-release-option", type=str, default='2024-08-31', help="Livebench release to use. Provide a single date option, current options are {'2024-08-31' (august update), '2024-07-26' (july update), '2024-06-24' (original release)}. Will handle excluding deprecated questions for selected release."
     )
     args = parser.parse_args()
+
+    output_base_dir = args.output_base_dir
 
     valid_livebench_releases = set(['2024-07-26', '2024-06-24', '2024-08-31'])
 
@@ -236,7 +251,7 @@ if __name__ == "__main__":
                 ]
 
                 task_full_name = f"{LIVE_BENCH_DATA_SUPER_PATH}/{category_name}/{task_name}"
-                answer_file = f"data/{task_full_name}/model_answer/{args.model}.jsonl"
+                answer_file = f"{output_base_dir}/{task_full_name}/model_answer/{args.model_id}.jsonl"
 
                 print(f"Questions from {task_full_name}")
                 print(f"Output to {answer_file}")
@@ -248,7 +263,8 @@ if __name__ == "__main__":
                     num_choices=args.num_choices,
                     max_tokens=args.max_tokens, 
                     answer_file=answer_file, 
-                    api_dict=api_dict
+                    api_dict=api_dict,
+                    default_temperature=args.default_temperature,
                 )
 
     elif args.question_source == "jsonl":
@@ -280,7 +296,8 @@ if __name__ == "__main__":
                 num_choices=args.num_choices,
                 max_tokens=args.max_tokens, 
                 answer_file=answer_file, 
-                api_dict=api_dict
+                api_dict=api_dict,
+                default_temperature=args.default_temperature,
             )
 
     else:
