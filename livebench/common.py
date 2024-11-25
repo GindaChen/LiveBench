@@ -195,6 +195,9 @@ def make_match_single(
             m = models[i]
             a = model_answers[m][q_id]
 
+            choices = model_answers[m][q_id]['choices']
+            logprobs = choices[0]['logprobs']
+            breakpoint()
             matches.append(
                 MatchSingle(
                     dict(q), m, a, multi_turn=multi_turn
@@ -252,6 +255,20 @@ def chat_completion_openai(model, conv, temperature, max_tokens, api_dict=None,
 from transformers import AutoTokenizer
 tokenizer = AutoTokenizer.from_pretrained("Qwen/Qwen2.5-7B-Instruct")
 
+
+def get_logprobs(logprobs_list):
+    # logprobs_list = response.choices[0].logprobs.content
+    token_logprob = []
+    top_logprobs = []
+
+    for item in logprobs_list:
+        token_logprob.append(item['logprob'])
+        top_logprobs.append(
+            [(top_item['token'], top_item['logprob']) for top_item in item['top_logprobs']]
+        )
+
+    return token_logprob, top_logprobs
+
 def chat_completion_openai_with_logprobs(
     model, conv, temperature, max_tokens, api_dict=None
 ):
@@ -261,51 +278,25 @@ def chat_completion_openai_with_logprobs(
     url = f"{openai.api_base}/generate"
     output = API_ERROR_OUTPUT
     messages = conv.to_openai_api_messages()
-    # TODO - not sure why apply the chat template on the entire message will give a null.
-    # t1 = tokenizer.apply_chat_template(messages[:1], tokenize=False)
-    text = tokenizer.apply_chat_template(messages[-1:], tokenize=False)
-    # messages = tokenizer.apply_chat_template(conv, tokenize=False)
-
-    import requests
-    response = requests.post(
-        url,
-        json=dict(
-            text=text,
-            # rid="0",
-            return_logprob=True,
-            top_logprobs_num=2, 
-            return_text_in_logprobs=True,
-            sampling_params=dict(
-                skip_special_tokens=True,
-                spaces_between_special_tokens=True,
-                temperature=temperature,
-                max_new_tokens=max_tokens,
-            ),
-        )
+    response = openai.ChatCompletion.create(
+        model=model,
+        messages=messages,
+        n=1,
+        temperature=temperature,
+        max_tokens=max_tokens,
+        logprobs=True,
+        top_logprobs=2,
     )
-    if response.status_code != 200:
-        raise Exception(f"Error: {response.status_code} {response.text}")
-
-    data = response.json()
-    output = data["text"]
-
-    meta_info = data["meta_info"]
-    usage = dict(
-        prompt_tokens=meta_info["prompt_tokens"],
-        cached_tokens=meta_info["cached_tokens"],
-        completion_tokens=meta_info["completion_tokens"],
-    )
-    logprobs = meta_info["output_token_logprobs"]
-    output_top_logprobs = meta_info["output_top_logprobs"]
-    normalized_prompt_logprob = meta_info["normalized_prompt_logprob"]
-    
+    first_choice = response.choices[0]
+    token_logprob, top_logprobs = get_logprobs(first_choice.logprobs.content)
+    output = first_choice.message.content
 
     return dict(
-        usage=usage,
-        logprobs=logprobs,
+        usage=response.usage.to_dict(),
+        logprobs=token_logprob,
         output=output,
-        output_top_logprobs=output_top_logprobs,
-        normalized_prompt_logprob=normalized_prompt_logprob,
+        output_top_logprobs=top_logprobs,
+        normalized_prompt_logprob=None,
     )
 
 

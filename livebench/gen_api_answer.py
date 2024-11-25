@@ -86,11 +86,7 @@ def get_answer(
 
             if api_dict is not None:
                 resp = chat_completion_openai_with_logprobs(model, conv, temperature, max_tokens, api_dict=api_dict)
-                # resp = chat_completion_openai_with_logprobs(
-                #     model, conv, temperature, max_tokens, 
-                #     api_dict=api_dict, 
-                # )
-                
+
                 usage, logprobs, output = resp["usage"], resp["logprobs"], resp["output"]
                 output_top_logprobs = resp["output_top_logprobs"]
                 normalized_prompt_logprob = resp["normalized_prompt_logprob"]
@@ -102,8 +98,11 @@ def get_answer(
                 infos.append(info)
                 usages.append(usage)
 
-                print("Question: ", question["turns"][j])
-                print("Output: ", output)
+                print(">> ......")
+                print(">> Question:\n", question["turns"][j])
+                print(">> Usage: ", usage)
+                print(">> Output:\n ", output)
+                print("<< ......")
 
             elif model in ANTHROPIC_MODEL_LIST:
                 output = chat_completion_anthropic(model, conv, temperature, max_tokens)
@@ -135,7 +134,7 @@ def get_answer(
             conv.update_last_message(output)
             turns.append(output)
 
-        choices.append({"index": i, "turns": turns, "logprobs": logprobs})
+        choices.append({"index": i, "turns": turns, "infos": infos, "usages": usages})
 
     # Dump answers
     ans = {
