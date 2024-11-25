@@ -202,13 +202,32 @@ def make_match_single(
             )
     return matches
 
-def chat_completion_openai(model, conv, temperature, max_tokens, api_dict=None):
+
+def extract_logprobs(response): 
+    w = response
+    return [
+        w['choices'][0]['logprobs']['content'][i]["logprob"]
+        for i in range(len(w['choices'][0]['logprobs']['content']))
+    ]
+
+
+def get_first_output(response):
+    return response["choices"][0]["message"]["content"]
+
+def chat_completion_openai(model, conv, temperature, max_tokens, api_dict=None, 
+                           use_logprobs=True, return_response=False):
     if api_dict is not None:
         openai.api_base = api_dict["api_base"]
         openai.api_key = api_dict["api_key"]
     output = API_ERROR_OUTPUT
     for _ in range(API_MAX_RETRY):
         try:
+
+            logprob_kwargs = dict(
+                logprob=True,
+                top_logprobs=5,
+            ) if use_logprobs else {}
+            
             messages = conv.to_openai_api_messages()
             response = openai.ChatCompletion.create(
                 model=model,
@@ -216,14 +235,78 @@ def chat_completion_openai(model, conv, temperature, max_tokens, api_dict=None):
                 n=1,
                 temperature=temperature,
                 max_tokens=max_tokens,
+                **logprob_kwargs,
             )
             output = response["choices"][0]["message"]["content"]
-            break
+            if return_response:
+                return response
+            else:
+                return output
         except Exception as e:
             print(type(e), e)
             time.sleep(API_RETRY_SLEEP)
 
     return output
+
+# TODO - Hack: make sure tokenizer is used wrt model.
+from transformers import AutoTokenizer
+tokenizer = AutoTokenizer.from_pretrained("Qwen/Qwen2.5-7B-Instruct")
+
+def chat_completion_openai_with_logprobs(
+    model, conv, temperature, max_tokens, api_dict=None
+):
+    if api_dict is not None:
+        openai.api_base = api_dict["api_base"]
+        openai.api_key = api_dict["api_key"]
+    url = f"{openai.api_base}/generate"
+    output = API_ERROR_OUTPUT
+    messages = conv.to_openai_api_messages()
+    # TODO - not sure why apply the chat template on the entire message will give a null.
+    # t1 = tokenizer.apply_chat_template(messages[:1], tokenize=False)
+    text = tokenizer.apply_chat_template(messages[-1:], tokenize=False)
+    # messages = tokenizer.apply_chat_template(conv, tokenize=False)
+
+    import requests
+    response = requests.post(
+        url,
+        json=dict(
+            text=text,
+            # rid="0",
+            return_logprob=True,
+            top_logprobs_num=2, 
+            return_text_in_logprobs=True,
+            sampling_params=dict(
+                skip_special_tokens=True,
+                spaces_between_special_tokens=True,
+                temperature=temperature,
+                max_new_tokens=max_tokens,
+            ),
+        )
+    )
+    if response.status_code != 200:
+        raise Exception(f"Error: {response.status_code} {response.text}")
+
+    data = response.json()
+    output = data["text"]
+
+    meta_info = data["meta_info"]
+    usage = dict(
+        prompt_tokens=meta_info["prompt_tokens"],
+        cached_tokens=meta_info["cached_tokens"],
+        completion_tokens=meta_info["completion_tokens"],
+    )
+    logprobs = meta_info["output_token_logprobs"]
+    output_top_logprobs = meta_info["output_top_logprobs"]
+    normalized_prompt_logprob = meta_info["normalized_prompt_logprob"]
+    
+
+    return dict(
+        usage=usage,
+        logprobs=logprobs,
+        output=output,
+        output_top_logprobs=output_top_logprobs,
+        normalized_prompt_logprob=normalized_prompt_logprob,
+    )
 
 
 def chat_completion_inference_openai(model, conv, temperature, max_tokens, api_dict=None):

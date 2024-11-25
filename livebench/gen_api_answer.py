@@ -48,6 +48,13 @@ from livebench.model.model_adapter import (
     OPENROUTER_MODEL_LIST,
 )
 
+from livebench.common import (
+    chat_completion_openai_with_logprobs
+)
+
+import threading
+file_lock = threading.Lock()
+
 def get_answer(
     question: dict, model: str, num_choices: int, max_tokens: int, answer_file: str, api_dict: dict=None, default_temperature: float=0.7
 ):
@@ -62,17 +69,42 @@ def get_answer(
         temperature = default_temperature
 
     choices = []
+    
     chat_state = None  # for palm-2 model
     for i in range(num_choices):
         conv = get_conversation_template(model)
 
         turns = []
+        infos = []
+        usages = []
+        if len(question["turns"]) > 1:
+            breakpoint()
+
         for j in range(len(question["turns"])):
             conv.append_message(conv.roles[0], question["turns"][j])
             conv.append_message(conv.roles[1], None)
 
             if api_dict is not None:
-                output = chat_completion_openai(model, conv, temperature, max_tokens, api_dict=api_dict)
+                resp = chat_completion_openai_with_logprobs(model, conv, temperature, max_tokens, api_dict=api_dict)
+                # resp = chat_completion_openai_with_logprobs(
+                #     model, conv, temperature, max_tokens, 
+                #     api_dict=api_dict, 
+                # )
+                
+                usage, logprobs, output = resp["usage"], resp["logprobs"], resp["output"]
+                output_top_logprobs = resp["output_top_logprobs"]
+                normalized_prompt_logprob = resp["normalized_prompt_logprob"]
+                info = dict(
+                    logprobs=logprobs,
+                    output_top_logprobs=output_top_logprobs,
+                    normalized_prompt_logprob=normalized_prompt_logprob,
+                )
+                infos.append(info)
+                usages.append(usage)
+
+                print("Question: ", question["turns"][j])
+                print("Output: ", output)
+
             elif model in ANTHROPIC_MODEL_LIST:
                 output = chat_completion_anthropic(model, conv, temperature, max_tokens)
             elif model == "palm-2-chat-bison-001":
@@ -103,7 +135,7 @@ def get_answer(
             conv.update_last_message(output)
             turns.append(output)
 
-        choices.append({"index": i, "turns": turns})
+        choices.append({"index": i, "turns": turns, "logprobs": logprobs})
 
     # Dump answers
     ans = {
@@ -115,8 +147,12 @@ def get_answer(
     }
 
     os.makedirs(os.path.dirname(answer_file), exist_ok=True)
-    with open(answer_file, "a") as fout:
-        fout.write(json.dumps(ans) + "\n")
+    print(f"Start dumping - {question['turns'][0][:20]}")
+    json_obj = json.dumps(ans) + "\n"
+    print(f"Finished dumping - {question['turns'][0][:20]}")
+    with file_lock:
+        with open(answer_file, "a") as fout:
+            fout.write(json_obj)
 
 
 def run_questions(parallel, questions, model, num_choices, max_tokens, answer_file, api_dict, default_temperature):
@@ -238,6 +274,8 @@ if __name__ == "__main__":
         }
     else:
         api_dict = None
+
+    # breakpoint()
 
     if args.question_source == "huggingface":
         categories, tasks = get_categories_tasks(args.bench_name)

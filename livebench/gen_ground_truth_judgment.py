@@ -44,6 +44,13 @@ from livebench.common import (
 )
 
 
+# TODO - Refactor me
+from transformers import AutoTokenizer
+tokenizer = AutoTokenizer.from_pretrained("Qwen/Qwen2.5-7B-Instruct")
+
+def get_tok_len(text):
+    return len(tokenizer(text)['input_ids'])
+
 def reorg_output_file(output_file):
     """De-duplicate and sort by question id and model"""
     judgments = {}
@@ -75,6 +82,10 @@ def play_a_match_gt(match: MatchSingle, output_file: str):
     question_text = question["turns"][0]
     ground_truth = question.get("ground_truth", None)
     llm_answer = answer['choices'][0]['turns'][-1]
+    llm_answer_tok_len = get_tok_len(llm_answer)
+    turns = answer['choices'][0]['turns']
+    question_tok_len = get_tok_len(question_text)
+    tok_lens = [get_tok_len(t) for t in turns]
     score = 0
     category = None
 
@@ -141,6 +152,12 @@ def play_a_match_gt(match: MatchSingle, output_file: str):
         "turn": turn,
         "tstamp": time.time(),
         "category": category,
+        'question_text': question_text,
+        'question_tok_len': question_tok_len,
+        'llm_answer': llm_answer,
+        'llm_answer_tok_len': llm_answer_tok_len,
+        'turns': turns,
+        'tok_lens': tok_lens,
     }
     if "subtask" in question.keys():
         result["subtask"] = question["subtask"]

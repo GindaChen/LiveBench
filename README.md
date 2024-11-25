@@ -1,5 +1,7 @@
 # LiveBench
 
+
+
 ## Quick Start
 
 ## Installation Quickstart
@@ -31,7 +33,12 @@ python gen_ground_truth_judgment.py --bench-name live_bench --output-base-dir da
 To show all the results:
 ```bash
 python show_livebench_result.py --result-base-dir data
+
+# Alternatively, if you move all data into a folder like data_multi:
+python show_livebench_result.py --result-base-dir 'data_multi/**'
 ```
+
+
 
 
 ## Question File
@@ -43,13 +50,7 @@ python download_leaderboard.py
 
 To use `question.jsonl` files instead of using the questions from huggingface, set `--question-source jsonl` on `gen_api_answer.py`, `gen_model_answer.py`, and `gen_ground_truth_judgment.py`. This is also a useful feature if you want to tweak the question jsonls or experiment with your own questions.
 
-## Data
-The questions for each of the categories can be found below:
-- [Reasoning](https://huggingface.co/datasets/livebench/reasoning)
-- [Math](https://huggingface.co/datasets/livebench/math)
-- [Coding](https://huggingface.co/datasets/livebench/coding)
-- [Language](https://huggingface.co/datasets/livebench/language)
-- [Data Analysis](https://huggingface.co/datasets/livebench/data_analysis)
-- [Instruction Following](https://huggingface.co/datasets/livebench/instruction_following)
 
-Also available are the [model answers](https://huggingface.co/datasets/livebench/model_answer) and 
+## TODO
+
+- [ ] `common.py` - Hack: make sure tokenizer is used wrt model.

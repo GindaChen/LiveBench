@@ -26,9 +26,10 @@ def display_result_single(args, update_names=True):
     ])
 
     if args.input_file is None:
-        input_files = (
-            glob.glob(f"{args.result_base_dir}/{args.bench_name}/**/model_judgment/ground_truth_judgment.jsonl", recursive=True)
-        )
+        # input_files = (
+        #     glob.glob(f"{args.result_base_dir}/{args.bench_name}/**/model_judgment/ground_truth_judgment.jsonl", recursive=True)
+        # )
+        input_files = glob.glob(f"data_multi/**/{args.bench_name}/**/model_judgment/ground_truth_judgment.jsonl", recursive=True)
     else:
         input_files = args.input_file
 
@@ -61,8 +62,24 @@ def display_result_single(args, update_names=True):
     question_id_set = set([q['question_id'] for q in questions_all])
     print(len(question_id_set))
 
-    df_all = pd.concat((pd.read_json(f, lines=True) for f in input_files), ignore_index=True)
-    df = df_all[["model", "score", "task", "category","question_id"]]
+    dfs = []
+    file_names = []
+    for f in input_files:
+        df = pd.read_json(f, lines=True)
+        df['file_name'] = f
+        dfs.append(df)
+        file_names.append(f)
+
+    df_all = pd.concat(dfs, ignore_index=True)
+    # breakpoint()
+    # ['question_id', 'task', 'model', 'score', 'turn', 'tstamp', 'category',
+    #    'question_text', 'question_tok_len', 'llm_answer', 'llm_answer_tok_len',
+    #    'turns', 'tok_lens', 'file_name', 'subtask']
+    df = df_all[[
+        "model", "score", "task", "subtask", "category", "question_id", "file_name", 
+        'question_text', 'question_tok_len', 'llm_answer', 'llm_answer_tok_len',
+        'turns', 'tok_lens',
+    ]]
     df = df[df["score"] != -1]
     df = df[df['question_id'].isin(question_id_set)]
     df['model'] = df['model'].str.lower()
